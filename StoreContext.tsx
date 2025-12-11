@@ -1,102 +1,53 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { DocumentItem, Location, DocumentCategory } from '../types';
+import React, { createContext, useContext, useReducer, ReactNode } from "react";
 
-interface StoreContextType {
-  documents: DocumentItem[];
-  locations: Location[];
-  addDocument: (doc: DocumentItem) => void;
-  updateDocument: (doc: DocumentItem) => void;
-  deleteDocument: (id: string) => void;
-  addLocation: (loc: Location) => void;
-  updateLocation: (loc: Location) => void;
-  deleteLocation: (id: string) => void;
-  getLocationName: (id: string) => string;
+interface State {
+  userInput: string;
+  loading: boolean;
+  result: string | null;
 }
 
-const StoreContext = createContext<StoreContextType | undefined>(undefined);
+const initialState: State = {
+  userInput: "",
+  loading: false,
+  result: null,
+};
 
-const STORAGE_KEY_DOCS = 'docflow_documents';
-const STORAGE_KEY_LOCS = 'docflow_locations';
+type Action =
+  | { type: "SET_INPUT"; payload: string }
+  | { type: "SET_LOADING"; payload: boolean }
+  | { type: "SET_RESULT"; payload: string | null }
+  | { type: "RESET" };
 
-// Seed data removed as requested
-const SEED_LOCATIONS: Location[] = [];
-const SEED_DOCUMENTS: DocumentItem[] = [];
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case "SET_INPUT":
+      return { ...state, userInput: action.payload };
+    case "SET_LOADING":
+      return { ...state, loading: action.payload };
+    case "SET_RESULT":
+      return { ...state, result: action.payload };
+    case "RESET":
+      return { ...initialState };
+    default:
+      return state;
+  }
+}
 
-export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [documents, setDocuments] = useState<DocumentItem[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
+const StoreContext = createContext<{
+  state: State;
+  dispatch: React.Dispatch<Action>;
+}>({
+  state: initialState,
+  dispatch: () => {},
+});
 
-  useEffect(() => {
-    const storedDocs = localStorage.getItem(STORAGE_KEY_DOCS);
-    const storedLocs = localStorage.getItem(STORAGE_KEY_LOCS);
-
-    if (storedDocs) setDocuments(JSON.parse(storedDocs));
-    else setDocuments(SEED_DOCUMENTS);
-
-    if (storedLocs) setLocations(JSON.parse(storedLocs));
-    else setLocations(SEED_LOCATIONS);
-    
-    setIsLoaded(true);
-  }, []);
-
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem(STORAGE_KEY_DOCS, JSON.stringify(documents));
-      localStorage.setItem(STORAGE_KEY_LOCS, JSON.stringify(locations));
-    }
-  }, [documents, locations, isLoaded]);
-
-  const addDocument = (doc: DocumentItem) => {
-    setDocuments(prev => [...prev, doc]);
-  };
-
-  const updateDocument = (doc: DocumentItem) => {
-    setDocuments(prev => prev.map(d => d.id === doc.id ? doc : d));
-  };
-
-  const deleteDocument = (id: string) => {
-    setDocuments(prev => prev.filter(d => d.id !== id));
-  };
-
-  const addLocation = (loc: Location) => {
-    setLocations(prev => [...prev, loc]);
-  };
-
-  const updateLocation = (loc: Location) => {
-    setLocations(prev => prev.map(l => l.id === loc.id ? loc : l));
-  };
-
-  const deleteLocation = (id: string) => {
-    setLocations(prev => prev.filter(l => l.id !== id));
-  };
-
-  const getLocationName = (id: string) => {
-    const loc = locations.find(l => l.id === id);
-    return loc ? loc.name : 'Local Desconhecido';
-  };
-
+export const StoreProvider = ({ children }: { children: ReactNode }) => {
+  const [state, dispatch] = useReducer(reducer, initialState);
   return (
-    <StoreContext.Provider value={{ 
-      documents, 
-      locations, 
-      addDocument, 
-      updateDocument, 
-      deleteDocument, 
-      addLocation, 
-      updateLocation,
-      deleteLocation,
-      getLocationName
-    }}>
+    <StoreContext.Provider value={{ state, dispatch }}>
       {children}
     </StoreContext.Provider>
   );
 };
 
-export const useStore = () => {
-  const context = useContext(StoreContext);
-  if (!context) {
-    throw new Error('useStore must be used within a StoreProvider');
-  }
-  return context;
-};
+export const useStore = () => useContext(StoreContext);
